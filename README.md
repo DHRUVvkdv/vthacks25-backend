@@ -93,6 +93,11 @@ Once running, visit:
 - `GET /` - Welcome message
 - `GET /health` - Health check
 
+#### User Authentication Endpoints (No API Key Required)
+
+- `POST /api/auth/signup` - User registration with preferences
+- `POST /api/auth/signin` - User authentication (returns JWT token)
+
 #### Protected Endpoints (Require API Key)
 
 - `GET /protected` - Simple protected endpoint
@@ -100,14 +105,171 @@ Once running, visit:
 - `POST /api/upload-video` - **Video processing endpoint** (main feature)
 - `GET /api/processing-status/{job_id}` - Processing status check
 
+#### User Management Endpoints (Require API Key + JWT Token)
+
+- `GET /api/user/profile` - Get current user profile
+- `PUT /api/user/preferences` - Update user preferences
+
 ### Authentication
 
-This API uses **simple API key authentication** from your `.env` file.
+This API uses **dual authentication system**:
+1. **API Key**: For endpoint access control
+2. **JWT Tokens**: For user identification and session management
 
 #### Setup Your API Key
 
-1. **Configure**: Set `API_KEY=your_key` in `image/src/.env`
+1. **Configure**: Set `API_KEY=your_key` in `.env` file (project root)
 2. **Use**: Include as `X-API-Key` header in requests
+
+## User Authentication System
+
+### User Registration (Signup)
+
+Create a new user account with preferences:
+
+```bash
+curl -X POST "http://localhost:8000/api/auth/signup" \
+  -H "X-API-Key: dv" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "username": "johndoe",
+    "password": "securepass123",
+    "confirmPassword": "securepass123",
+    "age": 20,
+    "academicLevel": "College",
+    "major": "Computer Science",
+    "dyslexiaSupport": false,
+    "languagePreference": "English",
+    "learningStyles": ["visual", "auditory"],
+    "metadata": []
+  }'
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user": {
+    "id": "uuid-string",
+    "name": "John Doe",
+    "username": "johndoe",
+    "age": 20,
+    "academicLevel": "College",
+    "major": "Computer Science",
+    "dyslexiaSupport": false,
+    "languagePreference": "English",
+    "learningStyles": ["visual", "auditory"],
+    "metadata": [],
+    "created_at": "2025-09-27T20:16:20.930890"
+  }
+}
+```
+
+### User Authentication (Signin)
+
+Authenticate existing user:
+
+```bash
+curl -X POST "http://localhost:8000/api/auth/signin" \
+  -H "X-API-Key: dv" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "password": "securepass123"
+  }'
+```
+
+**Response:** Same format as signup
+
+### User Profile Management
+
+#### Get User Profile
+
+```bash
+curl -X GET "http://localhost:8000/api/user/profile" \
+  -H "X-API-Key: dv" \
+  -H "Authorization: Bearer <jwt_token_from_signup_or_signin>"
+```
+
+#### Update User Preferences
+
+```bash
+curl -X PUT "http://localhost:8000/api/user/preferences" \
+  -H "X-API-Key: dv" \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "age": 25,
+    "academicLevel": "Graduate",
+    "major": "Data Science",
+    "dyslexiaSupport": true,
+    "languagePreference": "Spanish",
+    "learningStyles": ["visual", "kinesthetic"],
+    "metadata": ["updated_preferences"]
+  }'
+```
+
+### Authentication Flow for Frontend
+
+```javascript
+// 1. User Signup/Signin
+const authResponse = await fetch('/api/auth/signup', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'dv',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(userFormData)
+});
+
+const { access_token, user } = await authResponse.json();
+
+// 2. Store token for subsequent requests
+localStorage.setItem('jwt_token', access_token);
+
+// 3. Use token for protected endpoints
+const updateResponse = await fetch('/api/user/preferences', {
+  method: 'PUT',
+  headers: {
+    'X-API-Key': 'dv',
+    'Authorization': `Bearer ${access_token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(updatedPreferences)
+});
+```
+
+### Data Storage
+
+- **Database**: Amazon DynamoDB
+- **Table**: `vthacks25-users`
+- **User ID**: UUID strings
+- **Passwords**: bcrypt hashed
+- **Sessions**: JWT tokens (24-hour expiry)
+
+#### User Preferences Structure
+
+The system supports comprehensive user preferences for educational personalization:
+
+```json
+{
+  "name": "User Name",
+  "age": 20,
+  "academicLevel": "College",
+  "major": "Computer Science", 
+  "dyslexiaSupport": false,
+  "languagePreference": "English",
+  "learningStyles": ["visual", "auditory", "kinesthetic"],
+  "metadata": []
+}
+```
+
+**Supported Academic Levels**: Elementary, Middle School, High School, College, Graduate
+**Learning Styles**: visual, auditory, kinesthetic, reading/writing
+**Languages**: Any language string (English, Spanish, French, etc.)
+**Majors**: Any field of study string
 
 #### API Key Usage
 
@@ -165,6 +327,15 @@ curl -X POST "http://localhost:8000/api/upload-video" \
 }
 ```
 
+#### Testing the Authentication System
+
+Use the included test script:
+
+```bash
+# Test complete user authentication flow
+python test_user_auth.py
+```
+
 #### Testing the Video Processing
 
 Use the included test script:
@@ -220,17 +391,22 @@ vthacks25-backend/
 
 ## Dependencies
 
-Core packages for video processing and API:
+Core packages for user authentication, video processing, and API:
 
 - `fastapi` - Web framework
-- `uvicorn` - ASGI server
+- `uvicorn` - ASGI server  
 - `mangum` - AWS Lambda adapter
 - `python-dotenv` - Environment variables
 - `openai` - OpenAI API client (Whisper & GPT-4)
 - `python-multipart` - File upload support
 - `ffmpeg-python` - Video processing wrapper
+- `boto3` - AWS SDK for DynamoDB
+- `bcrypt` - Password hashing
+- `python-jose[cryptography]` - JWT token handling
 
-**System Requirement**: ffmpeg must be installed separately
+**System Requirements**: 
+- ffmpeg must be installed separately
+- AWS credentials for DynamoDB (or use local development mode)
 
 ## Docker Deployment
 
