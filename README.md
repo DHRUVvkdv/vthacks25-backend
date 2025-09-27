@@ -1,6 +1,6 @@
 # VTHacks 2025 Backend - EduTransform AI
 
- Educational video processing backend with AI-powered content extraction and personalization. Uses Google Gemini for native audio understanding and single-pass content strategy.
+Educational video processing backend with AI-powered content extraction and personalization. Uses Google Gemini for native audio understanding and single-pass content strategy.
 
 ## Features
 
@@ -310,7 +310,8 @@ curl -X POST "http://localhost:8000/api/process-video" \
   -F "video=@sample_video.mp4;type=video/mp4" \
   -F "user_background=general" \
   -F "academic_level=general" \
-  -F "mode=speed"
+  -F "mode=speed" \
+  -F "work_orders_mode=guided"   # guided | llm
 ```
 
 #### API Response Structure
@@ -336,7 +337,9 @@ curl -X POST "http://localhost:8000/api/process-video" \
       "content_strategy": {
         "target_audience": "AP Physics / Intro College",
         "learning_objectives": ["Define projectile motion", "Apply kinematics"],
-        "modules": [{ "title": "Intro to Projectile Motion", "topics": ["..."] }]
+        "modules": [
+          { "title": "Intro to Projectile Motion", "topics": ["..."] }
+        ]
       }
     },
     "provider": "google_genai",
@@ -344,11 +347,18 @@ curl -X POST "http://localhost:8000/api/process-video" \
     "work_orders": {
       "video_generation": { "brief": "Create a short intro framing: Physics" },
       "explanation": { "topics": ["Parabolic trajectory", "..."] },
-      "animation_config": { "scenes": ["Intro", "Kinematics"], "focus_equations": ["..."] },
-      "code_equation": { "examples": ["Compute altitude using dy = 1/2 a t^2"] },
+      "animation_config": {
+        "scenes": ["Intro", "Kinematics"],
+        "focus_equations": ["..."]
+      },
+      "code_equation": {
+        "examples": ["Compute altitude using dy = 1/2 a t^2"]
+      },
       "visualization": { "charts": ["trajectory_parabola"] },
       "application": { "examples": ["sports", "rockets", "sprinklers"] },
-      "summary": { "key_points": ["Parabolic path", "vx constant", "vy changes"] },
+      "summary": {
+        "key_points": ["Parabolic path", "vx constant", "vy changes"]
+      },
       "quiz_generation": { "blueprint": { "num_questions": 8 } }
     }
   }

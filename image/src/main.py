@@ -334,6 +334,7 @@ async def gemini_transcribe_audio(
     academic_level: Optional[str] = Form(default="general"),
     mode: Optional[str] = Form(default="speed"),
     model: Optional[str] = Form(default=None),
+    work_orders_mode: Optional[str] = Form(default="guided"),
     api_key: str = Depends(validate_api_key)
 ):
     """
@@ -371,7 +372,8 @@ async def gemini_transcribe_audio(
             "major": user_background,
             "academicLevel": academic_level,
             "prefer_fast": mode == "speed",
-            "force_model": model
+            "force_model": model,
+            "work_orders_mode": work_orders_mode
         }
         
         # Use Gemini for intelligent analysis
@@ -421,6 +423,7 @@ async def process_video_pipeline(
     academic_level: Optional[str] = Form(default="general"),
     mode: Optional[str] = Form(default="speed"),
     model: Optional[str] = Form(default=None),
+    work_orders_mode: Optional[str] = Form(default="guided"),
     api_key: str = Depends(validate_api_key)
 ):
     """
@@ -447,7 +450,8 @@ async def process_video_pipeline(
             "major": user_background,
             "academicLevel": academic_level,
             "prefer_fast": mode == "speed",
-            "force_model": model
+            "force_model": model,
+            "work_orders_mode": work_orders_mode
         }
 
         analysis = gemini_agent.transcribe_and_analyze(audio_path, user_context)

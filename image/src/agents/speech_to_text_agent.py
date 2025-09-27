@@ -40,13 +40,62 @@ class GeminiSpeechToTextAgent:
 
     def _build_work_orders(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
         subject = analysis_data.get('educational_analysis', {}).get('subject') or analysis_data.get('subject_analysis', {}).get('main_topic') or 'Subject'
+        topic = analysis_data.get('educational_analysis', {}).get('topic') or ''
         key_concepts = analysis_data.get('educational_analysis', {}).get('key_concepts') or analysis_data.get('subject_analysis', {}).get('key_concepts') or []
         formulas = analysis_data.get('educational_analysis', {}).get('formulas_mentioned') or []
         modules = analysis_data.get('content_strategy', {}).get('modules') or []
-        learning_objectives = analysis_data.get('content_strategy', {}).get('learning_objectives') or []
+        learning_objectives = analysis_data.get('content_strategy', {}).get('learning_objectives') or analysis_data.get('content_strategy', {}).get('learning_objqectives') or []
         real_world = analysis_data.get('personalized_insights', {}).get('real_world_applications') or []
         if isinstance(real_world, str):
             real_world = [real_world]
+
+        subject_l = f"{subject} {topic}".lower()
+
+        # Subject-aware visualization suggestions
+        if any(k in subject_l for k in ["chem", "stoich", "titration", "acid", "base", "mole", "reaction"]):
+            charts = ["reaction_progress_curve", "mole_ratio_bar", "titration_curve"]
+            code_examples = [
+                "Compute molar mass from formula",
+                "Convert grams <-> moles",
+                "Calculate molarity (M = moles / liters)",
+                "Estimate pH from [H+]"
+            ]
+        elif any(k in subject_l for k in ["bio", "genetic", "cell", "ecosystem", "enzyme"]):
+            charts = ["pathway_flowchart", "population_growth_curve", "enzyme_activity_plot"]
+            code_examples = [
+                "Simulate logistic population growth",
+                "Translate DNA -> RNA -> Protein mapping",
+                "Compute reaction rate from concentration vs time"
+            ]
+        elif any(k in subject_l for k in ["math", "calculus", "algebra", "geometry", "probability"]):
+            charts = ["function_plot", "slope_field", "histogram"]
+            code_examples = [
+                "Plot y = f(x) and highlight extrema",
+                "Approximate derivative numerically",
+                "Monte Carlo estimate of probability"
+            ]
+        elif any(k in subject_l for k in ["cs", "computer", "algorithm", "data structure"]):
+            charts = ["complexity_chart", "flowchart", "state_diagram"]
+            code_examples = [
+                "Time complexity comparator",
+                "Implement BFS and show traversal order",
+                "Visualize sorting swaps"
+            ]
+        else:
+            # Physics or general default
+            charts = ["concept_map", "timeline"]
+            code_examples = [
+                f"Apply formula: {formulas[0]}" if formulas else "Compute key metric from given formula"
+            ]
+
+        # If physics-like formulas present, refine physics visuals/examples
+        physics_markers = ["v_", "vx", "vy", "a", "t", "g", "dy", "dx"]
+        if any(m in " ".join(formulas).lower() for m in physics_markers) or any(k in subject_l for k in ["phys", "mechanics", "kinematics"]):
+            charts = ["trajectory_parabola", "vx_constant_plot", "vy_vs_time"]
+            code_examples = [
+                "Compute range given v and angle",
+                "Compute altitude using dy = 1/2 a t^2"
+            ]
 
         return {
             "video_generation": {
@@ -63,13 +112,10 @@ class GeminiSpeechToTextAgent:
             },
             "code_equation": {
                 "formulas": formulas,
-                "examples": [
-                    "Compute range given v and angle",
-                    "Compute altitude using dy = 1/2 a t^2"
-                ]
+                "examples": code_examples
             },
             "visualization": {
-                "charts": ["trajectory_parabola", "vx_constant_plot", "vy_vs_time"]
+                "charts": charts
             },
             "application": {
                 "examples": real_world
@@ -303,7 +349,37 @@ class GeminiSpeechToTextAgent:
                     }
                 }
 
-            work_orders = self._build_work_orders(analysis_data)
+            # Work orders mode: guided (fast) or llm (have Gemini produce all work orders)
+            work_orders_mode = (user_context or {}).get('work_orders_mode', 'guided')
+            if work_orders_mode == 'llm':
+                # Ask Gemini for work orders based on its own analysis
+                try:
+                    work_orders_prompt = """
+Generate JSON work orders for specialized agents based on the previous analysis.
+Return ONLY JSON with this shape:
+{
+  "video_generation": { "brief": string, "bullets": [string] },
+  "explanation": { "topics": [string], "objectives": [string] },
+  "animation_config": { "scenes": [string], "focus_equations": [string] },
+  "code_equation": { "formulas": [string], "examples": [string] },
+  "visualization": { "charts": [string] },
+  "application": { "examples": [string] },
+  "summary": { "key_points": [string] },
+  "quiz_generation": { "blueprint": { "num_questions": number, "focus": [string] } }
+}
+Output pure JSON, no code fences.
+"""
+                    work_orders_resp = self.client.models.generate_content(
+                        model=chosen_model,
+                        contents=[work_orders_prompt, str(analysis_data)]
+                    )
+                    wo_text = work_orders_resp.text if hasattr(work_orders_resp, 'text') else str(work_orders_resp)
+                    import json as _json
+                    work_orders = _json.loads(self._strip_code_fences(wo_text))
+                except Exception:
+                    work_orders = self._build_work_orders(analysis_data)
+            else:
+                work_orders = self._build_work_orders(analysis_data)
             
             return {
                 "gemini_analysis": analysis_data,
