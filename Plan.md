@@ -31,14 +31,14 @@ Video Upload + User Preferences → Orchestrator Agent → Content Strategy Agen
 
 **Specialized Content Agents:**
 
-- **Video Generation Agent** - Creates engaging intro scripts
-- **Explanation Agent** - Background-appropriate analogies and explanations
-- **Animation Config Agent** - Three.js visualization code
-- **Code/Equation Agent** - Formulas, calculations, and code examples
-- **Visualization Agent** - Diagrams, charts, and visual content
-- **Application Agent** - Real-world examples relevant to user background
-- **Summary Agent** - Key concepts with personalized connections
-- **Quiz Generation Agent** - Contextualized assessment questions
+- **Video Generation Agent** - Creates engaging intro scripts -> VIDEO FORMAT
+- **Explanation Agent** - Background-appropriate analogies and explanations -> TEXT ONLY
+- **Animation Config Agent** - Three.js visualization code -> Javascript code showing projectile motion
+- **Code/Equation Agent** - Formulas, calculations, and code examples -> ```TEXT
+- **Visualization Agent** - Diagrams, charts, and visual content -> GRAPH
+- **Application Agent** - Real-world examples relevant to user background -> TEXT ONLY
+- **Summary Agent** - Key concepts with personalized connections -> TEXT ONLY
+- **Quiz Generation Agent** - Contextualized assessment questions -> JSON TEXT FORMAT
 
 ## 📋 **8 Content Formats (Subject-Agnostic)**
 
