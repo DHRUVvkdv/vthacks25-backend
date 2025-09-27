@@ -1,24 +1,36 @@
-# VTHacks 2025 Backend
+# VTHacks 2025 Backend - EduTransform AI
 
-A super simple FastAPI application with API key authentication - perfect for hackathons!
+Educational video processing backend with AI-powered content extraction and personalization. Transform any educational video into 8 personalized learning formats using OpenAI Whisper and GPT-4.
 
 ## Features
 
-- **FastAPI**: Modern, fast web framework for building APIs
-- **Simple Authentication**: Single API key from environment variable
-- **CORS Enabled**: Full CORS support for web applications
+- **Video Processing**: Upload and extract audio from educational videos
+- **AI Transcription**: OpenAI Whisper API for speech-to-text conversion
+- **Content Analysis**: GPT-4 powered concept extraction and analysis
+- **User Personalization**: Tailor content based on user background (CS student, general, etc.)
+- **FastAPI**: Modern, fast web framework with automatic documentation
+- **Simple Authentication**: API key-based security
+- **CORS Enabled**: Full CORS support for frontend integration
 - **AWS Lambda Ready**: Deploy to AWS Lambda with Mangum adapter
-- **Interactive Docs**: Swagger UI with API key authorization
-- **Minimal Dependencies**: Only 4 packages needed
 
 ## Quick Start
 
 ### Prerequisites
 
 - Python 3.9+
+- ffmpeg (for video processing)
+- OpenAI API key
 - Virtual environment (venv)
 
-### Setup
+### Automated Setup
+
+Run the setup script for automatic configuration:
+
+```bash
+./setup.sh
+```
+
+### Manual Setup
 
 1. **Clone and navigate to the project**
 
@@ -26,29 +38,45 @@ A super simple FastAPI application with API key authentication - perfect for hac
    cd vthacks25-backend
    ```
 
-2. **Create and activate virtual environment**
+2. **Install ffmpeg**
+
+   ```bash
+   # macOS
+   brew install ffmpeg
+
+   # Ubuntu/Debian
+   sudo apt-get install ffmpeg
+
+   # Windows: Download from https://ffmpeg.org/download.html
+   ```
+
+3. **Create and activate virtual environment**
 
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. **Install dependencies**
+4. **Install dependencies**
 
    ```bash
    pip install -r image/requirements.txt
    ```
 
-4. **Set up your API key**
+5. **Set up environment variables**
 
    ```bash
-   cd image/src
-   echo 'API_KEY=your_secret_key_here' > .env
+   # Create .env file in project root
+   cat > .env << EOL
+   API_KEY=vth_hackathon_2025_secret_key
+   OPENAI_API_KEY=your_openai_api_key_here
+   EOL
    ```
 
-5. **Run the application**
+6. **Run the application**
    ```bash
-   python main.py
+   cd image/src
+   uvicorn main:app --reload
    ```
 
 ### API Documentation
@@ -69,6 +97,8 @@ Once running, visit:
 
 - `GET /protected` - Simple protected endpoint
 - `GET /api/data` - Sample data endpoint
+- `POST /api/upload-video` - **Video processing endpoint** (main feature)
+- `GET /api/processing-status/{job_id}` - Processing status check
 
 ### Authentication
 
@@ -100,6 +130,67 @@ Visit http://localhost:8000/docs to use the Swagger UI:
 3. Click **"Authorize"**
 4. Test all endpoints directly in the browser!
 
+### Video Processing API
+
+#### Upload and Process Video
+
+```bash
+# Upload a video file for processing
+curl -X POST "http://localhost:8000/api/upload-video" \
+  -H "X-API-Key: vth_hackathon_2025_secret_key" \
+  -F "video=@sample_video.mp4" \
+  -F "user_background=CS_student" \
+  -F "subject_preference=physics"
+```
+
+#### API Response Structure
+
+```json
+{
+  "transcript": {
+    "text": "Welcome to this physics lesson on projectile motion...",
+    "language": "en"
+  },
+  "concepts": {
+    "analysis": "GPT-4 analysis of key concepts, learning objectives, and difficulty level",
+    "word_count": 1250,
+    "estimated_duration": 8
+  },
+  "user_context": {
+    "background": "CS_student",
+    "subject_preference": "physics",
+    "filename": "sample_video.mp4"
+  },
+  "status": "success"
+}
+```
+
+#### Testing the Video Processing
+
+Use the included test script:
+
+```bash
+# Test with a sample video
+python test_video_upload.py path/to/your/video.mp4
+```
+
+#### Frontend Integration
+
+The API is designed for frontend integration with these characteristics:
+
+- **File Upload**: Supports multipart/form-data for video files
+- **User Context**: Accepts user background and subject preferences
+- **Async Ready**: Built for future async processing implementation
+- **Error Handling**: Comprehensive error responses for debugging
+- **CORS Enabled**: Ready for web application integration
+
+#### Supported Video Formats
+
+- **File Types**: MP4, AVI, MOV, MKV (any format supported by ffmpeg)
+- **Max File Size**: 100MB (configurable for production)
+- **Audio Requirements**: Any audio track (automatically extracted)
+- **Languages**: Auto-detection via Whisper API (99+ languages supported)
+
 ### CORS Support
 
 Full CORS support is enabled for all origins, methods, and headers - perfect for web applications!
@@ -110,25 +201,36 @@ Full CORS support is enabled for all origins, methods, and headers - perfect for
 
 ```
 vthacks25-backend/
-├── README.md              # This file
+├── README.md              # This documentation
+├── Plan.md                # Project architecture and implementation guide
 ├── .gitignore             # Git ignore rules
+├── setup.sh               # Automated setup script
+├── test_video_upload.py   # Video processing test script
+├── .env                   # Environment variables (API keys)
 ├── venv/                  # Virtual environment
 └── image/                 # Application files
     ├── Dockerfile         # For AWS Lambda deployment
-    ├── requirements.txt   # Just 4 dependencies!
+    ├── requirements.txt   # Dependencies (7 packages)
     └── src/
-        ├── main.py        # Complete FastAPI app (57 lines)
-        └── .env           # Your API key: API_KEY=your_key
+        ├── main.py        # FastAPI app with video processing
+        └── utils/
+            ├── __init__.py
+            └── video_processor.py  # Video processing pipeline
 ```
 
 ## Dependencies
 
-Only 4 packages needed:
+Core packages for video processing and API:
 
 - `fastapi` - Web framework
 - `uvicorn` - ASGI server
 - `mangum` - AWS Lambda adapter
 - `python-dotenv` - Environment variables
+- `openai` - OpenAI API client (Whisper & GPT-4)
+- `python-multipart` - File upload support
+- `ffmpeg-python` - Video processing wrapper
+
+**System Requirement**: ffmpeg must be installed separately
 
 ## Docker Deployment
 
