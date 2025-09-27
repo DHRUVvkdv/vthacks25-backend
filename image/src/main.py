@@ -21,7 +21,33 @@ load_dotenv(dotenv_path="../../.env")
 # Simple API key from environment
 API_KEY = os.getenv("API_KEY", "vth_hackathon_2025_secret_key")
 
-app = FastAPI(title="VTHacks 2025 Backend - EduTransform AI", version="1.0.0")
+app = FastAPI(
+    title="VTHacks 2025 Backend - EduTransform AI", 
+    version="1.0.0",
+    description="Educational video processing backend with AI-powered content extraction and user management",
+    tags_metadata=[
+        {
+            "name": "Health & Status",
+            "description": "System health and status endpoints"
+        },
+        {
+            "name": "Authentication", 
+            "description": "User signup, signin, and JWT token management"
+        },
+        {
+            "name": "User Management",
+            "description": "User profile and preferences management"
+        },
+        {
+            "name": "Video Processing",
+            "description": "Video upload and AI-powered content extraction"
+        },
+        {
+            "name": "Legacy",
+            "description": "Legacy endpoints for backward compatibility"
+        }
+    ]
+)
 
 # Initialize services
 video_processor = VideoProcessor()
@@ -62,27 +88,33 @@ def get_current_user_from_token(credentials: HTTPAuthorizationCredentials = Depe
         )
     return user_id
 
-# Public endpoints
-@app.get("/")
+# ============= HEALTH & STATUS ENDPOINTS =============
+
+@app.get("/", tags=["Health & Status"])
 def root():
+    """Welcome message and API information."""
     return {"message": "Welcome to VTHacks 2025 Backend API"}
 
-@app.get("/health")
+@app.get("/health", tags=["Health & Status"])
 def health():
+    """Health check endpoint for monitoring."""
     return {"status": "healthy"}
 
-# Protected endpoints (require API key)
-@app.get("/protected")
+# ============= LEGACY ENDPOINTS =============
+
+@app.get("/protected", tags=["Legacy"])
 def protected(api_key: str = Depends(validate_api_key)):
+    """Legacy protected endpoint for testing."""
     return {"message": "You accessed a protected endpoint!", "authenticated": True}
 
-@app.get("/api/data")
+@app.get("/api/data", tags=["Legacy"])
 def get_data(api_key: str = Depends(validate_api_key)):
+    """Legacy data endpoint for testing."""
     return {"data": ["item1", "item2", "item3"], "status": "success"}
 
-# ============= USER MANAGEMENT ENDPOINTS =============
+# ============= AUTHENTICATION ENDPOINTS =============
 
-@app.post("/api/auth/signup", response_model=AuthResponse)
+@app.post("/api/auth/signup", response_model=AuthResponse, tags=["Authentication"])
 def signup_user(user_data: UserSignupRequest):
     """
     User signup with preferences. Creates account and returns auth token.
@@ -138,7 +170,7 @@ def signup_user(user_data: UserSignupRequest):
     
     return AuthResponse(access_token=access_token, user=user_response)
 
-@app.post("/api/auth/signin", response_model=AuthResponse)
+@app.post("/api/auth/signin", response_model=AuthResponse, tags=["Authentication"])
 def signin_user(signin_data: UserSigninRequest):
     """
     User signin. Returns auth token if credentials are valid.
@@ -181,12 +213,12 @@ def signin_user(signin_data: UserSigninRequest):
     
     return AuthResponse(access_token=access_token, user=user_response)
 
-@app.get("/api/user/profile", response_model=UserResponse)
+@app.get("/api/user/profile", response_model=UserResponse, tags=["User Management"])
 def get_user_profile(
     user_id: str = Depends(get_current_user_from_token),
     api_key: str = Depends(validate_api_key)
 ):
-    """Get current user's profile. Requires authentication."""
+    """Get current user's profile. Requires API key + JWT token authentication."""
     user = db_client.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
@@ -208,13 +240,13 @@ def get_user_profile(
         created_at=user['createdAt']
     )
 
-@app.put("/api/user/preferences", response_model=UserResponse)
+@app.put("/api/user/preferences", response_model=UserResponse, tags=["User Management"])
 def update_user_preferences(
     preferences: UserPreferencesUpdate,
     user_id: str = Depends(get_current_user_from_token),
     api_key: str = Depends(validate_api_key)
 ):
-    """Update user preferences. Requires authentication."""
+    """Update user preferences. Requires API key + JWT token authentication."""
     # Get current user to verify existence
     current_user = db_client.get_user_by_id(user_id)
     if not current_user:
@@ -241,7 +273,7 @@ def update_user_preferences(
         created_at=updated_user['createdAt']
     )
 
-@app.post("/api/upload-video")
+@app.post("/api/upload-video", tags=["Video Processing"])
 async def upload_video(
     video: UploadFile = File(...),
     user_background: Optional[str] = Form(default="general"),
@@ -293,7 +325,7 @@ async def upload_video(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video processing failed: {str(e)}")
 
-@app.get("/api/processing-status/{job_id}")
+@app.get("/api/processing-status/{job_id}", tags=["Video Processing"])
 def get_processing_status(job_id: str, api_key: str = Depends(validate_api_key)):
     """Get status of video processing job (for future async implementation)."""
     # Placeholder for async job status tracking

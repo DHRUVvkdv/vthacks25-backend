@@ -113,6 +113,7 @@ Once running, visit:
 ### Authentication
 
 This API uses **dual authentication system**:
+
 1. **API Key**: For endpoint access control
 2. **JWT Tokens**: For user identification and session management
 
@@ -147,6 +148,7 @@ curl -X POST "http://localhost:8000/api/auth/signup" \
 ```
 
 **Response:**
+
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -215,29 +217,29 @@ curl -X PUT "http://localhost:8000/api/user/preferences" \
 
 ```javascript
 // 1. User Signup/Signin
-const authResponse = await fetch('/api/auth/signup', {
-  method: 'POST',
+const authResponse = await fetch("/api/auth/signup", {
+  method: "POST",
   headers: {
-    'X-API-Key': 'dv',
-    'Content-Type': 'application/json'
+    "X-API-Key": "dv",
+    "Content-Type": "application/json",
   },
-  body: JSON.stringify(userFormData)
+  body: JSON.stringify(userFormData),
 });
 
 const { access_token, user } = await authResponse.json();
 
 // 2. Store token for subsequent requests
-localStorage.setItem('jwt_token', access_token);
+localStorage.setItem("jwt_token", access_token);
 
 // 3. Use token for protected endpoints
-const updateResponse = await fetch('/api/user/preferences', {
-  method: 'PUT',
+const updateResponse = await fetch("/api/user/preferences", {
+  method: "PUT",
   headers: {
-    'X-API-Key': 'dv',
-    'Authorization': `Bearer ${access_token}`,
-    'Content-Type': 'application/json'
+    "X-API-Key": "dv",
+    Authorization: `Bearer ${access_token}`,
+    "Content-Type": "application/json",
   },
-  body: JSON.stringify(updatedPreferences)
+  body: JSON.stringify(updatedPreferences),
 });
 ```
 
@@ -258,7 +260,7 @@ The system supports comprehensive user preferences for educational personalizati
   "name": "User Name",
   "age": 20,
   "academicLevel": "College",
-  "major": "Computer Science", 
+  "major": "Computer Science",
   "dyslexiaSupport": false,
   "languagePreference": "English",
   "learningStyles": ["visual", "auditory", "kinesthetic"],
@@ -394,7 +396,7 @@ vthacks25-backend/
 Core packages for user authentication, video processing, and API:
 
 - `fastapi` - Web framework
-- `uvicorn` - ASGI server  
+- `uvicorn` - ASGI server
 - `mangum` - AWS Lambda adapter
 - `python-dotenv` - Environment variables
 - `openai` - OpenAI API client (Whisper & GPT-4)
@@ -404,7 +406,8 @@ Core packages for user authentication, video processing, and API:
 - `bcrypt` - Password hashing
 - `python-jose[cryptography]` - JWT token handling
 
-**System Requirements**: 
+**System Requirements**:
+
 - ffmpeg must be installed separately
 - AWS credentials for DynamoDB (or use local development mode)
 
