@@ -2,7 +2,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import ffmpeg
 import openai
@@ -13,21 +13,57 @@ class VideoProcessor:
     def __init__(self):
         self.openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
-    def extract_audio(self, video_path: str) -> str:
+    def extract_audio(self, video_path: str, return_info: bool = False) -> Union[str, Dict[str, Any]]:
         """Extract audio from video file using ffmpeg."""
         try:
             # Create temporary file for audio
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio:
                 audio_path = temp_audio.name
             
+            # Get video info first
+            probe = ffmpeg.probe(video_path)
+            video_info = {
+                "duration": float(probe['format']['duration']),
+                "size": int(probe['format']['size']),
+                "format": probe['format']['format_name'],
+                "streams": len(probe['streams'])
+            }
+            
             # Extract audio using ffmpeg-python
+            # Optimized settings for speech-to-text APIs:
+            # - 16kHz sample rate (optimal for speech recognition)
+            # - mono channel (reduces file size)
+            # - PCM 16-bit (uncompressed, high quality)
             (
                 ffmpeg
                 .input(video_path)
-                .output(audio_path, acodec='pcm_s16le', ar=16000, ac=1)
+                .output(
+                    audio_path, 
+                    acodec='pcm_s16le',  # 16-bit PCM
+                    ar=16000,            # 16kHz sample rate
+                    ac=1                 # mono channel
+                )
                 .overwrite_output()
                 .run(capture_stdout=True, capture_stderr=True)
             )
+            
+            # Get audio file info
+            audio_size = os.path.getsize(audio_path)
+            
+            if return_info:
+                return {
+                    "audio_path": audio_path,
+                    "video_info": video_info,
+                    "audio_info": {
+                        "path": audio_path,
+                        "size_bytes": audio_size,
+                        "size_mb": round(audio_size / (1024 * 1024), 2),
+                        "sample_rate": 16000,
+                        "channels": 1,
+                        "format": "WAV (PCM 16-bit)"
+                    },
+                    "extraction_status": "success"
+                }
             
             return audio_path
             

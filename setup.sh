@@ -44,8 +44,13 @@ if [ ! -f ".env" ]; then
     cat > .env << EOL
 # VTHacks 2025 Backend Configuration
 API_KEY=vth_hackathon_2025_secret_key
-OPENAI_API_KEY=your_openai_api_key_here
 JWT_SECRET_KEY=vthacks_2025_jwt_secret_key_for_demo
+
+# 🏆 GOOGLE GEMINI API (for Best Use of Gemini API prize!)
+GOOGLE_GEMINI_API_KEY=your_google_gemini_api_key_here
+
+# OpenAI API (optional - using Gemini as primary)
+OPENAI_API_KEY=your_openai_api_key_here
 
 # AWS Configuration (for DynamoDB)
 AWS_REGION=us-east-1
@@ -60,7 +65,8 @@ ENVIRONMENT=development
 LOG_LEVEL=INFO
 EOL
     echo "📝 Created .env file. Please update the following keys:"
-    echo "   - OPENAI_API_KEY: Your OpenAI API key"
+    echo "   🏆 GOOGLE_GEMINI_API_KEY: Your Google Gemini API key (REQUIRED for prize!)"
+    echo "   - OPENAI_API_KEY: Your OpenAI API key (optional)"
     echo "   - AWS_ACCESS_KEY_ID: Your AWS access key"
     echo "   - AWS_SECRET_ACCESS_KEY: Your AWS secret key"
 else

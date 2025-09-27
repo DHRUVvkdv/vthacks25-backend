@@ -1,12 +1,12 @@
 # VTHacks 2025 Backend - EduTransform AI
 
-Educational video processing backend with AI-powered content extraction and personalization. Transform any educational video into 8 personalized learning formats using OpenAI Whisper and GPT-4.
+ Educational video processing backend with AI-powered content extraction and personalization. Uses Google Gemini for native audio understanding and single-pass content strategy.
 
 ## Features
 
 - **Video Processing**: Upload and extract audio from educational videos
-- **AI Transcription**: OpenAI Whisper API for speech-to-text conversion
-- **Content Analysis**: GPT-4 powered concept extraction and analysis
+- **AI Transcription + Analysis**: Google Gemini (google-genai) native audio understanding
+- **Content Strategy**: Single-pass content strategy tailored to user preferences
 - **User Personalization**: Tailor content based on user background (CS student, general, etc.)
 - **FastAPI**: Modern, fast web framework with automatic documentation
 - **Simple Authentication**: API key-based security
@@ -19,7 +19,7 @@ Educational video processing backend with AI-powered content extraction and pers
 
 - Python 3.9+
 - ffmpeg (for video processing)
-- OpenAI API key
+- Google Gemini API key
 - Virtual environment (venv)
 
 ### Automated Setup
@@ -41,8 +41,18 @@ Run the setup script for automatic configuration:
 2. **Install ffmpeg**
 
    ```bash
-   # macOS
+   # macOS (Intel/x86_64)
    brew install ffmpeg
+
+   # macOS (Apple Silicon - if Homebrew unavailable)
+   # Download ARM64 build from GitHub and use install script:
+   curl -L -o FFmpeg-arm64.zip "https://github.com/ColorsWind/FFmpeg-macOS/releases/download/n5.0.1-patch3/FFmpeg-shared-n5.0.1-OSX-arm64.zip"
+   unzip FFmpeg-arm64.zip
+   python3 install.py . ./ffmpeg_installed
+   cp ./ffmpeg_installed/bin/ffmpeg ~/.local/bin/
+   cp ./ffmpeg_installed/bin/ffprobe ~/.local/bin/
+   cp -r ./ffmpeg_installed/lib ~/.local/
+   # Ensure ~/.local/bin is in your PATH
 
    # Ubuntu/Debian
    sudo apt-get install ffmpeg
@@ -68,8 +78,9 @@ Run the setup script for automatic configuration:
    ```bash
    # Create .env file in project root
    cat > .env << EOL
-   API_KEY=vth_hackathon_2025_secret_key
-   OPENAI_API_KEY=your_openai_api_key_here
+   API_KEY=dv
+   GOOGLE_GEMINI_API_KEY=your_gemini_api_key_here
+   DYNAMODB_USERS_TABLE=vthacks25-users
    EOL
    ```
 
@@ -100,10 +111,9 @@ Once running, visit:
 
 #### Protected Endpoints (Require API Key)
 
-- `GET /protected` - Simple protected endpoint
-- `GET /api/data` - Sample data endpoint
-- `POST /api/upload-video` - **Video processing endpoint** (main feature)
-- `GET /api/processing-status/{job_id}` - Processing status check
+- `POST /api/process-video` - Single pipeline: upload -> audio -> Gemini analysis + content strategy
+- `POST /api/extract-audio` - Extract audio from uploaded video (utility)
+- `POST /api/gemini-transcribe` - Run Gemini on an existing audio path (utility)
 
 #### User Management Endpoints (Require API Key + JWT Token)
 
@@ -276,13 +286,8 @@ The system supports comprehensive user preferences for educational personalizati
 #### API Key Usage
 
 ```bash
-# Public endpoints (no auth needed)
-curl http://localhost:8000/
-curl http://localhost:8000/health
-
-# Protected endpoints (API key required)
-curl -H "X-API-Key: your_key" http://localhost:8000/protected
-curl -H "X-API-Key: your_key" http://localhost:8000/api/data
+# Include the header on protected endpoints
+curl -H "X-API-Key: dv" http://localhost:8000/api/process-video
 ```
 
 #### Interactive API Documentation
@@ -296,36 +301,57 @@ Visit http://localhost:8000/docs to use the Swagger UI:
 
 ### Video Processing API
 
-#### Upload and Process Video
+#### Single Pipeline (Upload -> Audio -> Gemini)
 
 ```bash
-# Upload a video file for processing
-curl -X POST "http://localhost:8000/api/upload-video" \
-  -H "X-API-Key: vth_hackathon_2025_secret_key" \
-  -F "video=@sample_video.mp4" \
-  -F "user_background=CS_student" \
-  -F "subject_preference=physics"
+curl -X POST "http://localhost:8000/api/process-video" \
+  -H "X-API-Key: dv" \
+  -H "accept: application/json" \
+  -F "video=@sample_video.mp4;type=video/mp4" \
+  -F "user_background=general" \
+  -F "academic_level=general" \
+  -F "mode=speed"
 ```
 
 #### API Response Structure
 
 ```json
 {
-  "transcript": {
-    "text": "Welcome to this physics lesson on projectile motion...",
-    "language": "en"
+  "pipeline": "video->audio->gemini",
+  "extraction": {
+    "audio_path": "/tmp/xyz.wav",
+    "video_info": { "duration": 363.3, "format": "mp4" },
+    "audio_info": { "sample_rate": 16000, "channels": 1 },
+    "extraction_status": "success"
   },
-  "concepts": {
-    "analysis": "GPT-4 analysis of key concepts, learning objectives, and difficulty level",
-    "word_count": 1250,
-    "estimated_duration": 8
-  },
-  "user_context": {
-    "background": "CS_student",
-    "subject_preference": "physics",
-    "filename": "sample_video.mp4"
-  },
-  "status": "success"
+  "analysis": {
+    "gemini_analysis": {
+      "transcription": "...",
+      "educational_analysis": {
+        "subject": "Physics",
+        "topic": "Projectile Motion",
+        "key_concepts": ["Parabolic trajectory", "Kinematic equations"],
+        "formulas_mentioned": ["d_x = v_x * t", "d_y = 1/2 * a * t^2"]
+      },
+      "content_strategy": {
+        "target_audience": "AP Physics / Intro College",
+        "learning_objectives": ["Define projectile motion", "Apply kinematics"],
+        "modules": [{ "title": "Intro to Projectile Motion", "topics": ["..."] }]
+      }
+    },
+    "provider": "google_genai",
+    "model": "models/gemini-2.5-flash",
+    "work_orders": {
+      "video_generation": { "brief": "Create a short intro framing: Physics" },
+      "explanation": { "topics": ["Parabolic trajectory", "..."] },
+      "animation_config": { "scenes": ["Intro", "Kinematics"], "focus_equations": ["..."] },
+      "code_equation": { "examples": ["Compute altitude using dy = 1/2 a t^2"] },
+      "visualization": { "charts": ["trajectory_parabola"] },
+      "application": { "examples": ["sports", "rockets", "sprinklers"] },
+      "summary": { "key_points": ["Parabolic path", "vx constant", "vy changes"] },
+      "quiz_generation": { "blueprint": { "num_questions": 8 } }
+    }
+  }
 }
 ```
 
@@ -362,7 +388,7 @@ The API is designed for frontend integration with these characteristics:
 - **File Types**: MP4, AVI, MOV, MKV (any format supported by ffmpeg)
 - **Max File Size**: 100MB (configurable for production)
 - **Audio Requirements**: Any audio track (automatically extracted)
-- **Languages**: Auto-detection via Whisper API (99+ languages supported)
+- **Language**: Handled by Gemini audio understanding
 
 ### CORS Support
 
@@ -399,7 +425,7 @@ Core packages for user authentication, video processing, and API:
 - `uvicorn` - ASGI server
 - `mangum` - AWS Lambda adapter
 - `python-dotenv` - Environment variables
-- `openai` - OpenAI API client (Whisper & GPT-4)
+- `google-genai` - Google Gemini Python SDK
 - `python-multipart` - File upload support
 - `ffmpeg-python` - Video processing wrapper
 - `boto3` - AWS SDK for DynamoDB

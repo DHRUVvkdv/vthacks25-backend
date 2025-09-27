@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from utils.video_processor import VideoProcessor
 from utils.auth import AuthManager, get_current_user_id
 from utils.dynamodb_client import DynamoDBClient
+from agents.speech_to_text_agent import GeminiSpeechToTextAgent
 from models.schemas import (
     UserSignupRequest, UserSigninRequest, UserPreferencesUpdate, 
     UserResponse, AuthResponse, VideoProcessingRequest
@@ -54,6 +55,14 @@ video_processor = VideoProcessor()
 auth_manager = AuthManager()
 db_client = DynamoDBClient()
 
+# Initialize Gemini agent (for Best Use of Gemini API prize!)
+try:
+    gemini_agent = GeminiSpeechToTextAgent()
+    print("🏆 Google Gemini 1.5 Pro initialized for Best Use of Gemini API!")
+except ValueError as e:
+    print(f"⚠️ Gemini agent initialization failed: {e}")
+    gemini_agent = None
+
 # Create DynamoDB table if it doesn't exist (for local development)
 try:
     db_client.create_table_if_not_exist()
@@ -70,11 +79,11 @@ app.add_middleware(
 )
 
 # Security schemes
-api_key_header = APIKeyHeader(name="X-API-Key")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 bearer_scheme = HTTPBearer()
 
 def validate_api_key(x_api_key: str = Depends(api_key_header)):
-    if x_api_key != API_KEY:
+    if not x_api_key or x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
@@ -102,15 +111,7 @@ def health():
 
 # ============= LEGACY ENDPOINTS =============
 
-@app.get("/protected", tags=["Legacy"])
-def protected(api_key: str = Depends(validate_api_key)):
-    """Legacy protected endpoint for testing."""
-    return {"message": "You accessed a protected endpoint!", "authenticated": True}
-
-@app.get("/api/data", tags=["Legacy"])
-def get_data(api_key: str = Depends(validate_api_key)):
-    """Legacy data endpoint for testing."""
-    return {"data": ["item1", "item2", "item3"], "status": "success"}
+# Removed legacy endpoints
 
 # ============= AUTHENTICATION ENDPOINTS =============
 
@@ -273,24 +274,20 @@ def update_user_preferences(
         created_at=updated_user['createdAt']
     )
 
-@app.post("/api/upload-video", tags=["Video Processing"])
-async def upload_video(
+@app.post("/api/extract-audio", tags=["Video Processing"])
+async def extract_audio_from_video(
     video: UploadFile = File(...),
-    user_background: Optional[str] = Form(default="general"),
-    subject_preference: Optional[str] = Form(default="auto-detect"),
     api_key: str = Depends(validate_api_key)
 ):
     """
-    Upload and process educational video for content extraction.
+    Extract audio from uploaded video file (Step 1 of video processing).
     
     Args:
-        video: Video file to process
-        user_background: User's academic background (e.g., "CS_student", "general")
-        subject_preference: Subject context preference
+        video: Video file to extract audio from
         api_key: API authentication key
     
     Returns:
-        Dict containing transcript, extracted concepts, and processing metadata
+        Dict containing video info, audio info, and extraction metadata
     """
     
     # Validate file type
@@ -308,14 +305,15 @@ async def upload_video(
         temp_video_path = temp_video.name
     
     try:
-        # Process the video
-        result = video_processor.process_video(temp_video_path)
+        # Extract audio with detailed info
+        result = video_processor.extract_audio(temp_video_path, return_info=True)
         
-        # Add user context to result
-        result["user_context"] = {
-            "background": user_background,
-            "subject_preference": subject_preference,
-            "filename": video.filename
+        # Add upload metadata
+        result["upload_info"] = {
+            "filename": video.filename,
+            "content_type": video.content_type,
+            "size_bytes": video.size,
+            "size_mb": round(video.size / (1024 * 1024), 2) if video.size else 0
         }
         
         return result
@@ -323,7 +321,146 @@ async def upload_video(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Video processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Audio extraction failed: {str(e)}")
+    finally:
+        # Cleanup video file
+        if os.path.exists(temp_video_path):
+            os.unlink(temp_video_path)
+
+@app.post("/api/gemini-transcribe", tags=["Video Processing"])
+async def gemini_transcribe_audio(
+    audio_file_path: str = Form(...),
+    user_background: Optional[str] = Form(default="general"),
+    academic_level: Optional[str] = Form(default="general"),
+    mode: Optional[str] = Form(default="speed"),
+    model: Optional[str] = Form(default=None),
+    api_key: str = Depends(validate_api_key)
+):
+    """
+    🏆 GEMINI-POWERED: Convert audio to intelligent educational analysis.
+    
+    This endpoint showcases Google Gemini 1.5 Pro's capabilities for the Best Use of Gemini API prize.
+    Goes beyond simple transcription to provide personalized educational insights.
+    
+    Args:
+        audio_file_path: Path to the extracted audio file (from /api/extract-audio)
+        user_background: User's field of study (e.g., "Computer Science", "Physics")
+        academic_level: User's academic level (e.g., "High School", "College")
+        api_key: API authentication key
+    
+    Returns:
+        Dict containing Gemini's intelligent analysis of the educational content
+    """
+    
+    if not gemini_agent:
+        raise HTTPException(
+            status_code=503,
+            detail="🚫 Google Gemini API not available. Please set GOOGLE_GEMINI_API_KEY in .env file."
+        )
+    
+    # Validate audio file exists
+    if not os.path.exists(audio_file_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Audio file not found. Use /api/extract-audio first to get the audio_path."
+        )
+    
+    try:
+        # Prepare user context for personalized analysis
+        user_context = {
+            "major": user_background,
+            "academicLevel": academic_level,
+            "prefer_fast": mode == "speed",
+            "force_model": model
+        }
+        
+        # Use Gemini for intelligent analysis
+        result = gemini_agent.transcribe_and_analyze(audio_file_path, user_context)
+        
+        # Add processing metadata
+        result["processing_info"] = {
+            "audio_file_processed": audio_file_path,
+            "personalization": {
+                "user_background": user_background,
+                "academic_level": academic_level
+            },
+            "gemini_features_used": [
+                "Multimodal audio understanding",
+                "Educational content analysis",
+                "Personalized learning insights",
+                "Concept extraction",
+                "Real-world application mapping"
+            ]
+        }
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gemini processing failed: {str(e)}")
+    finally:
+        # Cleanup audio file after processing
+        if os.path.exists(audio_file_path):
+            os.unlink(audio_file_path)
+
+@app.get("/api/gemini-capabilities", tags=["Video Processing"])
+def get_gemini_capabilities(api_key: str = Depends(validate_api_key)):
+    """🏆 SHOWCASE: Display Google Gemini's unique capabilities for the prize."""
+    if not gemini_agent:
+        return {"error": "Gemini not available", "setup_required": "GOOGLE_GEMINI_API_KEY"}
+    
+    return gemini_agent.get_gemini_capabilities()
+
+# Removed Gemini debug models endpoint
+
+@app.post("/api/process-video", tags=["Video Processing"])
+async def process_video_pipeline(
+    video: UploadFile = File(...),
+    user_background: Optional[str] = Form(default="general"),
+    academic_level: Optional[str] = Form(default="general"),
+    mode: Optional[str] = Form(default="speed"),
+    model: Optional[str] = Form(default=None),
+    api_key: str = Depends(validate_api_key)
+):
+    """
+    Single pipeline: upload video -> extract audio -> Gemini Flash analysis + content strategy.
+    """
+    if not gemini_agent:
+        raise HTTPException(status_code=503, detail="Gemini not available")
+
+    if not video.content_type or not video.content_type.startswith('video/'):
+        raise HTTPException(status_code=400, detail="File must be a video")
+    if video.size and video.size > 100 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Video file too large (max 100MB)")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+        content = await video.read()
+        temp_video.write(content)
+        temp_video_path = temp_video.name
+
+    try:
+        extraction = video_processor.extract_audio(temp_video_path, return_info=True)
+        audio_path = extraction["audio_path"] if isinstance(extraction, dict) else extraction
+
+        user_context = {
+            "major": user_background,
+            "academicLevel": academic_level,
+            "prefer_fast": mode == "speed",
+            "force_model": model
+        }
+
+        analysis = gemini_agent.transcribe_and_analyze(audio_path, user_context)
+        return {
+            "pipeline": "video->audio->gemini",
+            "extraction": extraction,
+            "analysis": analysis,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline failed: {str(e)}")
+    finally:
+        if os.path.exists(temp_video_path):
+            os.unlink(temp_video_path)
 
 @app.get("/api/processing-status/{job_id}", tags=["Video Processing"])
 def get_processing_status(job_id: str, api_key: str = Depends(validate_api_key)):
