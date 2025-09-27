@@ -67,6 +67,12 @@ class GeminiSpeechToTextAgent:
                 "Translate DNA -> RNA -> Protein mapping",
                 "Compute reaction rate from concentration vs time"
             ]
+        elif any(k in subject_l for k in ["phys", "mechanics", "kinematics", "projectile"]):
+            charts = ["trajectory_parabola", "vx_constant_plot", "vy_vs_time"]
+            code_examples = [
+                "Compute range given v and angle",
+                "Compute altitude using dy = 1/2 a t^2"
+            ]
         elif any(k in subject_l for k in ["math", "calculus", "algebra", "geometry", "probability"]):
             charts = ["function_plot", "slope_field", "histogram"]
             code_examples = [
@@ -82,19 +88,10 @@ class GeminiSpeechToTextAgent:
                 "Visualize sorting swaps"
             ]
         else:
-            # Physics or general default
+            # General default
             charts = ["concept_map", "timeline"]
             code_examples = [
                 f"Apply formula: {formulas[0]}" if formulas else "Compute key metric from given formula"
-            ]
-
-        # If physics-like formulas present, refine physics visuals/examples
-        physics_markers = ["v_", "vx", "vy", "a", "t", "g", "dy", "dx"]
-        if any(m in " ".join(formulas).lower() for m in physics_markers) or any(k in subject_l for k in ["phys", "mechanics", "kinematics"]):
-            charts = ["trajectory_parabola", "vx_constant_plot", "vy_vs_time"]
-            code_examples = [
-                "Compute range given v and angle",
-                "Compute altitude using dy = 1/2 a t^2"
             ]
 
         return {
