@@ -180,3 +180,8 @@ This application is configured for AWS Lambda deployment using:
 - **Handler**: `main.handler` (configured in Dockerfile)
 
 The same codebase works for both local development and Lambda deployment.
+
+# how to run:
+
+docker build -t vt25 .  
+docker run -p 8000:8000 --env-file .env --entrypoint "" vt25 python main.py
