@@ -431,13 +431,13 @@ def get_orchestrator_info(api_key: str = Depends(validate_api_key)):
     
     return content_orchestrator.get_orchestrator_info()
 
-@app.post("/api/test-single-agent", tags=["Video Processing"])
+@app.post("/api/test-single-agent", tags=["Debug"])
 async def test_single_agent(
     agent_name: str = Form(...),
     test_work_order: str = Form(default='{"brief": "test", "bullets": ["test1", "test2"]}'),
     api_key: str = Depends(validate_api_key)
 ):
-    """🔧 DEBUG: Test a single agent to identify issues."""
+    """🔧 DEBUG: Test a single agent to identify performance bottlenecks."""
     if not content_orchestrator:
         raise HTTPException(status_code=503, detail="Content orchestrator not available")
     
@@ -458,19 +458,14 @@ async def test_single_agent(
         }
         
         print(f"🧪 Testing single agent: {agent_name}")
+        print(f"📋 Available agents: {list(content_orchestrator.agents.keys())}")
         
-        if agent_name not in content_orchestrator.agents:
-            raise HTTPException(status_code=400, detail=f"Unknown agent: {agent_name}")
+        # Use the new orchestrator method for consistent execution
+        result = await content_orchestrator.run_single_agent(
+            agent_name, work_order, mock_gemini_analysis, mock_user_context
+        )
         
-        agent = content_orchestrator.agents[agent_name]
-        result = await agent.generate_content(work_order, mock_gemini_analysis, mock_user_context)
-        
-        return {
-            "agent_name": agent_name,
-            "status": "success",
-            "result": result,
-            "test_work_order": work_order
-        }
+        return result
         
     except Exception as e:
         return {
@@ -505,10 +500,10 @@ def view_content_format(format_name: str, api_key: str = Depends(validate_api_ke
                 }
             ]
         },
-        "static_animation": {
-            "javascript_code": "// Three.js Projectile Motion Animation\nconst scene = new THREE.Scene();\nconst camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);\n\n// Create projectile\nconst geometry = new THREE.SphereGeometry(0.1, 32, 32);\nconst material = new THREE.MeshPhongMaterial({color: 0xff6b6b});\nconst projectile = new THREE.Mesh(geometry, material);\n\n// Animation parameters\nlet t = 0;\nconst v0x = 10; // initial horizontal velocity\nconst v0y = 15; // initial vertical velocity\nconst g = -9.81; // gravity\n\nfunction animate() {\n    t += 0.01;\n    \n    // Update position using kinematic equations\n    projectile.position.x = v0x * t;\n    projectile.position.y = v0y * t + 0.5 * g * t * t;\n    \n    if (projectile.position.y < 0) t = 0; // Reset when hits ground\n    \n    renderer.render(scene, camera);\n    requestAnimationFrame(animate);\n}",
-            "description": "Interactive 3D visualization showing parabolic trajectory with real physics"
-        },
+        # "static_animation": {  # COMMENTED OUT - performance optimization (138s bottleneck)
+        #     "javascript_code": "// Three.js Projectile Motion Animation\nconst scene = new THREE.Scene();\nconst camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);\n\n// Create projectile\nconst geometry = new THREE.SphereGeometry(0.1, 32, 32);\nconst material = new THREE.MeshPhongMaterial({color: 0xff6b6b});\nconst projectile = new THREE.Mesh(geometry, material);\n\n// Animation parameters\nlet t = 0;\nconst v0x = 10; // initial horizontal velocity\nconst v0y = 15; // initial vertical velocity\nconst g = -9.81; // gravity\n\nfunction animate() {\n    t += 0.01;\n    \n    // Update position using kinematic equations\n    projectile.position.x = v0x * t;\n    projectile.position.y = v0y * t + 0.5 * g * t * t;\n    \n    if (projectile.position.y < 0) t = 0; // Reset when hits ground\n    \n    renderer.render(scene, camera);\n    requestAnimationFrame(animate);\n}",
+        #     "description": "Interactive 3D visualization showing parabolic trajectory with real physics"
+        # },
         "practice_problems": {
             "questions": [
                 {
@@ -530,7 +525,7 @@ def view_content_format(format_name: str, api_key: str = Depends(validate_api_ke
         "frontend_usage": {
             "hook_video": "Display script with video player UI, show visual suggestions as thumbnails",
             "concept_explanation": "Render as expandable cards with analogies highlighted",
-            "static_animation": "Embed Three.js code in canvas component with play/pause controls",
+            # "static_animation": "Embed Three.js code in canvas component with play/pause controls",  # COMMENTED OUT - performance optimization
             "practice_problems": "Interactive quiz component with immediate feedback"
         }.get(format_name, "Render as structured content with appropriate UI components")
     }
@@ -599,11 +594,13 @@ async def process_video_complete_pipeline(
     api_key: str = Depends(validate_api_key)
 ):
     """
-    🚀 COMPLETE PIPELINE: Video → Audio → Gemini Analysis → 8 Specialized Agents → Learning Formats
+    🚀 COMPLETE PIPELINE: Video → Audio → Gemini Analysis → 6 Specialized Agents → Learning Formats
     
-    This is the full EduTransform AI pipeline that generates all 8 personalized learning formats:
-    1. Hook Video, 2. Concept Explanation, 3. Static Animation, 4. Code/Equations,
-    5. Visual Diagrams, 6. Practice Problems, 7. Real-world Applications, 8. Summary Cards
+    This is the full EduTransform AI pipeline that generates 6 optimized personalized learning formats:
+    1. Concept Explanation, 2. Code/Equations, 3. Visual Diagrams, 
+    4. Practice Problems, 5. Real-world Applications, 6. Summary Cards
+    
+    Note: Hook Video and Static Animation agents disabled for performance optimization.
     
     🔑 Authentication Enhancement:
     - If auth_token (JWT) is provided, user preferences will be automatically retrieved

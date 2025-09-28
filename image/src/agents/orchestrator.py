@@ -3,9 +3,8 @@ import time
 from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
 
-from .video_generation_agent import VideoGenerationAgent
 from .explanation_agent import ExplanationAgent
-from .animation_config_agent import AnimationConfigAgent
+# from .animation_config_agent import AnimationConfigAgent  # COMMENTED OUT - 138s bottleneck
 from .code_equation_agent import CodeEquationAgent
 from .visualization_agent import VisualizationAgent
 from .application_agent import ApplicationAgent
@@ -18,21 +17,69 @@ class ContentOrchestrator:
     Orchestrates the execution of specialized content generation agents.
     
     Takes work orders from the Gemini analysis and coordinates parallel execution
-    of 8 specialized agents to generate personalized learning content.
+    of specialized agents to generate personalized learning content.
     """
     
     def __init__(self):
-        # Initialize all specialized agents
+        # Initialize all specialized agents (video generation & animation removed for performance)
         self.agents = {
-            'video_generation': VideoGenerationAgent(),
             'explanation': ExplanationAgent(),
-            'animation_config': AnimationConfigAgent(),
+            # 'animation_config': AnimationConfigAgent(),  # COMMENTED OUT - 138s bottleneck
             'code_equation': CodeEquationAgent(),
             'visualization': VisualizationAgent(),
             'application': ApplicationAgent(),
             'summary': SummaryAgent(),
             'quiz_generation': QuizGenerationAgent()
         }
+        
+    async def run_single_agent(
+        self,
+        agent_type: str,
+        work_order: Dict[str, Any],
+        gemini_analysis: Dict[str, Any],
+        user_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Run a single agent for debugging/testing purposes.
+        
+        Args:
+            agent_type: Name of the agent to run
+            work_order: Work order for the agent
+            gemini_analysis: Full Gemini analysis for context
+            user_context: User preferences and context
+            
+        Returns:
+            Result from the single agent
+        """
+        if agent_type not in self.agents:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown agent type: {agent_type}. Available: {list(self.agents.keys())}"
+            )
+        
+        print(f"🔧 Running single agent: {agent_type}")
+        start_time = time.time()
+        
+        try:
+            result = await self._execute_agent_safely(
+                agent_type, work_order, gemini_analysis, user_context
+            )
+            execution_time = time.time() - start_time
+            
+            return {
+                "agent_type": agent_type,
+                "status": "success",
+                "execution_time": execution_time,
+                "content": result
+            }
+        except Exception as e:
+            execution_time = time.time() - start_time
+            return {
+                "agent_type": agent_type,
+                "status": "failed",
+                "execution_time": execution_time,
+                "error": str(e)
+            }
         
     async def orchestrate_content_generation(
         self, 
@@ -52,7 +99,7 @@ class ContentOrchestrator:
             Dictionary with generated content from all agents
         """
         start_time = time.time()
-        print("🎯 Starting content orchestration with 8 specialized agents...")
+        print(f"🎯 Starting content orchestration with {len(self.agents)} specialized agents...")
         print(f"⏰ Orchestration started at: {time.strftime('%H:%M:%S')}")
         
         # Prepare tasks for parallel execution
@@ -75,19 +122,28 @@ class ContentOrchestrator:
             else:
                 print(f"⚠️  Unknown agent type: {agent_type}")
         
-        # Execute all agents in parallel with detailed logging
-        print(f"🚀 Executing {len(tasks)} agents in parallel...")
+        # Execute agents with staggered start to reduce API rate limiting
+        print(f"🚀 Executing {len(tasks)} agents with staggered start...")
         print(f"🔧 Agent types being executed: {', '.join(agent_names)}")
+        
+        # Stagger agent execution by 0.5 seconds to reduce API pressure
+        staggered_tasks = []
+        for i, task in enumerate(tasks):
+            if i > 0:  # Don't delay the first agent
+                staggered_task = self._delayed_execution(task, i * 0.5)
+                staggered_tasks.append(staggered_task)
+            else:
+                staggered_tasks.append(task)
         
         # Add timeout and better error handling
         try:
             results = await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
+                asyncio.gather(*staggered_tasks, return_exceptions=True),
                 timeout=300  # 5 minute timeout
             )
         except asyncio.TimeoutError:
             print("⏱️ TIMEOUT: Some agents took longer than 5 minutes!")
-            results = [Exception("Timeout after 5 minutes") for _ in tasks]
+            results = [Exception("Timeout after 5 minutes") for _ in staggered_tasks]
         
         # Process results and handle any failures
         content_results = {}
@@ -161,22 +217,22 @@ class ContentOrchestrator:
             print(f"🔍 {agent_type} work_order keys: {list(work_order.keys()) if work_order else 'None'}")
             raise e
     
+    async def _delayed_execution(self, task, delay_seconds: float):
+        """Execute a task after a delay to stagger API calls."""
+        await asyncio.sleep(delay_seconds)
+        return await task
+    
     def _generate_fallback_content(self, agent_name: str) -> Dict[str, Any]:
         """Generate fallback content when an agent fails."""
         fallbacks = {
-            'video_generation': {
-                "script": "Introduction to the educational topic",
-                "hook": "Let's explore this fascinating subject together!",
-                "duration": "30 seconds"
-            },
             'explanation': {
                 "explanation": "This topic covers important concepts that build foundational understanding.",
                 "key_points": ["Core concept 1", "Core concept 2", "Core concept 3"]
             },
-            'animation_config': {
-                "config": "// Basic animation configuration\nconst config = { scene: 'basic', duration: 3000 };",
-                "description": "Simple animation setup"
-            },
+            # 'animation_config': {  # COMMENTED OUT - performance optimization
+            #     "config": "// Basic animation configuration\nconst config = { scene: 'basic', duration: 3000 };",
+            #     "description": "Simple animation setup"
+            # },
             'code_equation': {
                 "code_examples": ["// Basic example\nconsole.log('Hello, learning!');"],
                 "equations": ["Basic formula: a + b = c"]
@@ -211,11 +267,10 @@ class ContentOrchestrator:
         """Structure the results into the 8 learning formats for the frontend."""
         formats = {}
         
-        # Map agent results to learning formats
+        # Map agent results to learning formats (video generation & animation removed for performance)
         format_mapping = {
-            'hook_video': 'video_generation',
             'concept_explanation': 'explanation', 
-            'static_animation': 'animation_config',
+            # 'static_animation': 'animation_config',  # COMMENTED OUT - performance optimization
             'code_equations': 'code_equation',
             'visual_diagrams': 'visualization',
             'practice_problems': 'quiz_generation',
@@ -240,9 +295,8 @@ class ContentOrchestrator:
             "orchestrator": "ContentOrchestrator",
             "available_agents": list(self.agents.keys()),
             "supported_formats": [
-                "Hook Video",
                 "Concept Explanation", 
-                "Static Animation",
+                # "Static Animation",  # COMMENTED OUT - performance optimization
                 "Code/Equations",
                 "Visual Diagrams",
                 "Practice Problems",

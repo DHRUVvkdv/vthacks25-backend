@@ -103,10 +103,10 @@ class GeminiSpeechToTextAgent:
                 "topics": key_concepts,
                 "objectives": learning_objectives
             },
-            "animation_config": {
-                "scenes": [m.get('title') for m in modules][:3],
-                "focus_equations": formulas
-            },
+            # "animation_config": {  # COMMENTED OUT - 138s performance bottleneck
+            #     "scenes": [m.get('title') for m in modules][:3],
+            #     "focus_equations": formulas
+            # },
             "code_equation": {
                 "formulas": formulas,
                 "examples": code_examples
@@ -355,9 +355,7 @@ class GeminiSpeechToTextAgent:
 Generate JSON work orders for specialized agents based on the previous analysis.
 Return ONLY JSON with this shape:
 {
-  "video_generation": { "brief": string, "bullets": [string] },
   "explanation": { "topics": [string], "objectives": [string] },
-  "animation_config": { "scenes": [string], "focus_equations": [string] },
   "code_equation": { "formulas": [string], "examples": [string] },
   "visualization": { "charts": [string] },
   "application": { "examples": [string] },
@@ -365,6 +363,7 @@ Return ONLY JSON with this shape:
   "quiz_generation": { "blueprint": { "num_questions": number, "focus": [string] } }
 }
 Output pure JSON, no code fences.
+Note: video_generation and animation_config agents are disabled for performance optimization.
 """
                     work_orders_resp = self.client.models.generate_content(
                         model=chosen_model,
