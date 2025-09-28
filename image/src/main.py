@@ -11,6 +11,7 @@ from utils.video_processor import VideoProcessor
 from utils.auth import AuthManager, get_current_user_id
 from utils.dynamodb_client import DynamoDBClient
 from agents.speech_to_text_agent import GeminiSpeechToTextAgent
+from agents.orchestrator import ContentOrchestrator
 from models.schemas import (
     UserSignupRequest, UserSigninRequest, UserPreferencesUpdate, 
     UserResponse, AuthResponse, VideoProcessingRequest
@@ -62,6 +63,14 @@ try:
 except ValueError as e:
     print(f"⚠️ Gemini agent initialization failed: {e}")
     gemini_agent = None
+
+# Initialize Content Orchestrator
+try:
+    content_orchestrator = ContentOrchestrator()
+    print("🎯 Content Orchestrator initialized with 8 specialized agents!")
+except Exception as e:
+    print(f"⚠️ Content Orchestrator initialization failed: {e}")
+    content_orchestrator = None
 
 # Create DynamoDB table if it doesn't exist (for local development)
 try:
@@ -414,6 +423,118 @@ def get_gemini_capabilities(api_key: str = Depends(validate_api_key)):
     
     return gemini_agent.get_gemini_capabilities()
 
+@app.get("/api/orchestrator-info", tags=["Video Processing"])
+def get_orchestrator_info(api_key: str = Depends(validate_api_key)):
+    """🎯 SHOWCASE: Display Content Orchestrator and specialized agents information."""
+    if not content_orchestrator:
+        return {"error": "Content orchestrator not available", "setup_required": "GOOGLE_GEMINI_API_KEY"}
+    
+    return content_orchestrator.get_orchestrator_info()
+
+@app.post("/api/test-single-agent", tags=["Video Processing"])
+async def test_single_agent(
+    agent_name: str = Form(...),
+    test_work_order: str = Form(default='{"brief": "test", "bullets": ["test1", "test2"]}'),
+    api_key: str = Depends(validate_api_key)
+):
+    """🔧 DEBUG: Test a single agent to identify issues."""
+    if not content_orchestrator:
+        raise HTTPException(status_code=503, detail="Content orchestrator not available")
+    
+    try:
+        import json
+        work_order = json.loads(test_work_order)
+        
+        # Mock context for testing
+        mock_gemini_analysis = {
+            "educational_analysis": {
+                "subject": "Chemistry",
+                "topic": "Chemical Bonds"
+            }
+        }
+        mock_user_context = {
+            "major": "Computer Science",
+            "academicLevel": "College"
+        }
+        
+        print(f"🧪 Testing single agent: {agent_name}")
+        
+        if agent_name not in content_orchestrator.agents:
+            raise HTTPException(status_code=400, detail=f"Unknown agent: {agent_name}")
+        
+        agent = content_orchestrator.agents[agent_name]
+        result = await agent.generate_content(work_order, mock_gemini_analysis, mock_user_context)
+        
+        return {
+            "agent_name": agent_name,
+            "status": "success",
+            "result": result,
+            "test_work_order": work_order
+        }
+        
+    except Exception as e:
+        return {
+            "agent_name": agent_name,
+            "status": "failed",
+            "error": str(e),
+            "test_work_order": test_work_order
+        }
+
+@app.get("/api/view-content/{format_name}", tags=["Video Processing"])
+def view_content_format(format_name: str, api_key: str = Depends(validate_api_key)):
+    """📺 VIEW: Display generated content in readable format for frontend preview."""
+    
+    # This would normally come from a database or cache
+    # For now, return a sample of what each format looks like
+    
+    sample_formats = {
+        "hook_video": {
+            "script": "Ready to unlock the secrets of projectile motion? Whether you're a computer science student or just curious about physics, this topic will change how you see moving objects forever! Today we'll explore how objects fly through the air, from basketball shots to rocket launches, using the same principles that power video game physics engines. Let's dive into the fascinating world of parabolic trajectories and discover the math behind the motion!",
+            "hook_line": "Ready to unlock the secrets of projectile motion?",
+            "estimated_duration": "45 seconds",
+            "visual_suggestions": ["animated projectile paths", "split-screen comparisons"]
+        },
+        "concept_explanation": {
+            "main_explanation": "Projectile motion is like programming a video game character's jump - you have horizontal movement (constant velocity) and vertical movement (affected by gravity). Think of it as two separate functions running simultaneously: one for X-coordinates and one for Y-coordinates.",
+            "key_concepts": [
+                {
+                    "concept": "Horizontal Motion",
+                    "explanation": "Moves at constant velocity, like a car on cruise control",
+                    "analogy": "Like updating x-position in a game loop with constant velocity",
+                    "example": "A ball thrown horizontally maintains its horizontal speed"
+                }
+            ]
+        },
+        "static_animation": {
+            "javascript_code": "// Three.js Projectile Motion Animation\nconst scene = new THREE.Scene();\nconst camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);\n\n// Create projectile\nconst geometry = new THREE.SphereGeometry(0.1, 32, 32);\nconst material = new THREE.MeshPhongMaterial({color: 0xff6b6b});\nconst projectile = new THREE.Mesh(geometry, material);\n\n// Animation parameters\nlet t = 0;\nconst v0x = 10; // initial horizontal velocity\nconst v0y = 15; // initial vertical velocity\nconst g = -9.81; // gravity\n\nfunction animate() {\n    t += 0.01;\n    \n    // Update position using kinematic equations\n    projectile.position.x = v0x * t;\n    projectile.position.y = v0y * t + 0.5 * g * t * t;\n    \n    if (projectile.position.y < 0) t = 0; // Reset when hits ground\n    \n    renderer.render(scene, camera);\n    requestAnimationFrame(animate);\n}",
+            "description": "Interactive 3D visualization showing parabolic trajectory with real physics"
+        },
+        "practice_problems": {
+            "questions": [
+                {
+                    "question": "In a video game, a character jumps with initial velocity 20 m/s horizontally and 15 m/s vertically. How far does the character travel horizontally before landing?",
+                    "options": ["30.6 m", "45.2 m", "61.2 m", "52.8 m"],
+                    "correct_answer": "61.2 m",
+                    "explanation": "Use kinematic equations: time of flight = 2*v0y/g, then horizontal distance = v0x * time"
+                }
+            ]
+        }
+    }
+    
+    if format_name not in sample_formats:
+        raise HTTPException(status_code=404, detail=f"Format '{format_name}' not found")
+    
+    return {
+        "format_name": format_name,
+        "content": sample_formats[format_name],
+        "frontend_usage": {
+            "hook_video": "Display script with video player UI, show visual suggestions as thumbnails",
+            "concept_explanation": "Render as expandable cards with analogies highlighted",
+            "static_animation": "Embed Three.js code in canvas component with play/pause controls",
+            "practice_problems": "Interactive quiz component with immediate feedback"
+        }.get(format_name, "Render as structured content with appropriate UI components")
+    }
+
 # Removed Gemini debug models endpoint
 
 @app.post("/api/process-video", tags=["Video Processing"])
@@ -462,6 +583,93 @@ async def process_video_pipeline(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline failed: {str(e)}")
+    finally:
+        if os.path.exists(temp_video_path):
+            os.unlink(temp_video_path)
+
+@app.post("/api/process-video-complete", tags=["Video Processing"])
+async def process_video_complete_pipeline(
+    video: UploadFile = File(...),
+    user_background: Optional[str] = Form(default="general"),
+    academic_level: Optional[str] = Form(default="general"),
+    mode: Optional[str] = Form(default="speed"),
+    model: Optional[str] = Form(default=None),
+    work_orders_mode: Optional[str] = Form(default="guided"),
+    api_key: str = Depends(validate_api_key)
+):
+    """
+    🚀 COMPLETE PIPELINE: Video → Audio → Gemini Analysis → 8 Specialized Agents → Learning Formats
+    
+    This is the full EduTransform AI pipeline that generates all 8 personalized learning formats:
+    1. Hook Video, 2. Concept Explanation, 3. Static Animation, 4. Code/Equations,
+    5. Visual Diagrams, 6. Practice Problems, 7. Real-world Applications, 8. Summary Cards
+    """
+    if not gemini_agent or not content_orchestrator:
+        missing = []
+        if not gemini_agent:
+            missing.append("Gemini agent")
+        if not content_orchestrator:
+            missing.append("Content orchestrator")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Required services not available: {', '.join(missing)}"
+        )
+
+    if not video.content_type or not video.content_type.startswith('video/'):
+        raise HTTPException(status_code=400, detail="File must be a video")
+    if video.size and video.size > 100 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Video file too large (max 100MB)")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+        content = await video.read()
+        temp_video.write(content)
+        temp_video_path = temp_video.name
+
+    try:
+        print("🎬 Step 1: Extracting audio from video...")
+        extraction = video_processor.extract_audio(temp_video_path, return_info=True)
+        audio_path = extraction["audio_path"] if isinstance(extraction, dict) else extraction
+
+        user_context = {
+            "major": user_background,
+            "academicLevel": academic_level,
+            "prefer_fast": mode == "speed",
+            "force_model": model,
+            "work_orders_mode": work_orders_mode
+        }
+
+        print("🧠 Step 2: Gemini analysis and work order generation...")
+        analysis = gemini_agent.transcribe_and_analyze(audio_path, user_context)
+        
+        print("🎯 Step 3: Orchestrating 8 specialized content agents...")
+        work_orders = analysis.get("work_orders", {})
+        gemini_analysis = analysis.get("gemini_analysis", {})
+        
+        # Run the complete orchestration
+        orchestration_result = await content_orchestrator.orchestrate_content_generation(
+            work_orders=work_orders,
+            gemini_analysis=gemini_analysis,
+            user_context=user_context
+        )
+        
+        print("🎉 Complete pipeline finished successfully!")
+        
+        return {
+            "pipeline": "video->audio->gemini->orchestrator->8_agents",
+            "extraction": extraction,
+            "gemini_analysis": analysis,
+            "content_generation": orchestration_result,
+            "processing_summary": {
+                "total_steps": 3,
+                "video_processed": True,
+                "gemini_analysis_complete": True,
+                "agents_executed": orchestration_result.get("orchestration_summary", {}).get("total_agents", 0),
+                "learning_formats_generated": len(orchestration_result.get("learning_formats", {}))
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Complete pipeline failed: {str(e)}")
     finally:
         if os.path.exists(temp_video_path):
             os.unlink(temp_video_path)
