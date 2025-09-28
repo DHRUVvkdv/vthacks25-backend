@@ -126,11 +126,19 @@ class ContentOrchestrator:
         print(f"🚀 Executing {len(tasks)} agents with staggered start...")
         print(f"🔧 Agent types being executed: {', '.join(agent_names)}")
         
-        # Stagger agent execution by 0.5 seconds to reduce API pressure
+        # Intelligent staggering based on available API keys
+        from .base_agent import GeminiAPIKeyManager
+        api_manager = GeminiAPIKeyManager()
+        api_key_count = api_manager.get_client_count()
+        
+        # Reduce stagger delay if we have multiple API keys
+        stagger_delay = 0.2 if api_key_count > 1 else 1.0
+        print(f"🔑 Using {api_key_count} API keys with {stagger_delay}s stagger delay")
+        
         staggered_tasks = []
         for i, task in enumerate(tasks):
             if i > 0:  # Don't delay the first agent
-                staggered_task = self._delayed_execution(task, i * 0.5)
+                staggered_task = self._delayed_execution(task, i * stagger_delay)
                 staggered_tasks.append(staggered_task)
             else:
                 staggered_tasks.append(task)
