@@ -47,6 +47,13 @@ class BaseContentAgent(ABC):
         academic_level = user_context.get("academicLevel", "general")
         return f"User background: {major} student at {academic_level} level"
     
+    def _get_language_instruction(self, user_context: Dict[str, Any]) -> str:
+        """Extract language preference and create instruction for LLM."""
+        language_preference = user_context.get("languagePreference", "English")
+        if language_preference and language_preference.lower() != "english":
+            return f"\n\nIMPORTANT: Respond in {language_preference} language. All content, explanations, and text should be in {language_preference}."
+        return ""
+    
     def _get_subject_context(self, gemini_analysis: Dict[str, Any]) -> str:
         """Extract subject and topic from Gemini analysis."""
         educational_analysis = gemini_analysis.get("educational_analysis", {})

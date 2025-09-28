@@ -30,11 +30,15 @@ class ExplanationAgent(BaseContentAgent):
         personalized_insights = gemini_analysis.get("personalized_insights", {})
         field_connections = personalized_insights.get("field_connections", "")
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Create a comprehensive yet accessible explanation of the educational content.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Topics to explain: {', '.join(topics)}
         Learning objectives: {', '.join(objectives)}

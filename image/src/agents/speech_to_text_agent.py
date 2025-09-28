@@ -146,6 +146,12 @@ class GeminiSpeechToTextAgent:
             user_background = user_context.get("major", "general") if user_context else "general"
             academic_level = user_context.get("academicLevel", "general") if user_context else "general"
             
+            # Get language preference
+            language_preference = user_context.get("languagePreference", "English") if user_context else "English"
+            language_instruction = ""
+            if language_preference and language_preference.lower() != "english":
+                language_instruction = f"\n\nIMPORTANT: Respond in {language_preference} language. All content, explanations, and analysis should be in {language_preference}."
+            
             prompt = f"""
             🎓 EDUCATIONAL CONTENT ANALYSIS (Powered by Google Gemini 1.5 Pro)
             
@@ -154,6 +160,8 @@ class GeminiSpeechToTextAgent:
             USER CONTEXT:
             - Academic Background: {user_background}
             - Academic Level: {academic_level}
+            - Language Preference: {language_preference}
+            {language_instruction}
             
             TASK: Please analyze this educational audio and provide:
             

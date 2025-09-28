@@ -13,11 +13,15 @@ class CodeEquationAgent(BaseContentAgent):
         formulas = work_order.get("formulas", [])
         examples = work_order.get("examples", [])
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Generate code examples and equation explanations for educational content.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Formulas to explain: {', '.join(formulas)}
         Code examples needed: {', '.join(examples)}

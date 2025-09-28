@@ -17,11 +17,15 @@ class VisualizationAgent(BaseContentAgent):
         # Get the standardized template for AI to follow
         chart_template = StandardizedChartConfig.get_json_template_for_ai()
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Generate visual diagrams and chart specifications for educational content.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Charts needed: {', '.join(charts) if charts else 'Generate appropriate charts for the content'}
         

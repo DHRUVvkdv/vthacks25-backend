@@ -12,11 +12,15 @@ class ApplicationAgent(BaseContentAgent):
         
         examples = work_order.get("examples", [])
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Generate real-world applications and practical examples for educational content.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Application examples: {', '.join(examples) if isinstance(examples, list) else str(examples)}
         

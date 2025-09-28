@@ -29,12 +29,16 @@ class VideoGenerationAgent(BaseContentAgent):
         
         print(f"📹 VideoGenerationAgent: Brief='{brief}', Bullets={len(bullets)} items")
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         # Build personalized prompt
         prompt = f"""
         Create an engaging 30-60 second video script for an educational hook video.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Brief: {brief}
         Key concepts to highlight: {', '.join(bullets)}

@@ -30,11 +30,15 @@ class AnimationConfigAgent(BaseContentAgent):
         educational_analysis = gemini_analysis.get("educational_analysis", {})
         subject = educational_analysis.get("subject", "").lower()
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Create a Three.js animation configuration for educational visualization.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Scenes to animate: {', '.join(scenes)}
         Key equations/formulas: {', '.join(focus_equations)}

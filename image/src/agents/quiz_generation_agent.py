@@ -14,11 +14,15 @@ class QuizGenerationAgent(BaseContentAgent):
         num_questions = blueprint.get("num_questions", 5)
         focus_areas = blueprint.get("focus", [])
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Generate personalized quiz questions for educational assessment.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Number of questions: {num_questions}
         Focus areas: {', '.join(focus_areas)}

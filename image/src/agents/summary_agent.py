@@ -12,11 +12,15 @@ class SummaryAgent(BaseContentAgent):
         
         key_points = work_order.get("key_points", [])
         
+        # Get language instruction
+        language_instruction = self._get_language_instruction(user_context)
+        
         prompt = f"""
         Generate concise summaries and learning cards for educational content.
         
         {user_bg}
         {subject_context}
+        {language_instruction}
         
         Key points to summarize: {', '.join(key_points)}
         
