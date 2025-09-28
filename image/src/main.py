@@ -595,6 +595,7 @@ async def process_video_complete_pipeline(
     mode: Optional[str] = Form(default="speed"),
     model: Optional[str] = Form(default=None),
     work_orders_mode: Optional[str] = Form(default="guided"),
+    auth_token: Optional[str] = Form(default=None),
     api_key: str = Depends(validate_api_key)
 ):
     """
@@ -603,6 +604,12 @@ async def process_video_complete_pipeline(
     This is the full EduTransform AI pipeline that generates all 8 personalized learning formats:
     1. Hook Video, 2. Concept Explanation, 3. Static Animation, 4. Code/Equations,
     5. Visual Diagrams, 6. Practice Problems, 7. Real-world Applications, 8. Summary Cards
+    
+    🔑 Authentication Enhancement:
+    - If auth_token (JWT) is provided, user preferences will be automatically retrieved
+    - User preferences override form parameters for enhanced personalization
+    - Includes: major, academicLevel, dyslexiaSupport, languagePreference, learningStyles, age
+    - Falls back to form parameters if auth_token is invalid/missing
     """
     if not gemini_agent or not content_orchestrator:
         missing = []
@@ -630,6 +637,7 @@ async def process_video_complete_pipeline(
         extraction = video_processor.extract_audio(temp_video_path, return_info=True)
         audio_path = extraction["audio_path"] if isinstance(extraction, dict) else extraction
 
+        # Build user context - start with form parameters as defaults
         user_context = {
             "major": user_background,
             "academicLevel": academic_level,
@@ -637,6 +645,35 @@ async def process_video_complete_pipeline(
             "force_model": model,
             "work_orders_mode": work_orders_mode
         }
+        
+        # If auth_token provided, get user profile and merge preferences
+        if auth_token:
+            try:
+                print("👤 Getting user profile from auth token...")
+                user_id = get_current_user_id(f"Bearer {auth_token}")
+                if user_id:
+                    user_profile = db_client.get_user_by_id(user_id)
+                    if user_profile and 'preferences' in user_profile:
+                        prefs = user_profile['preferences']
+                        # Override defaults with user preferences
+                        user_context.update({
+                            "major": prefs.get('major', user_context["major"]),
+                            "academicLevel": prefs.get('academicLevel', user_context["academicLevel"]),
+                            "dyslexiaSupport": prefs.get('dyslexiaSupport', False),
+                            "languagePreference": prefs.get('languagePreference', 'English'),
+                            "learningStyles": prefs.get('learningStyles', []),
+                            "age": prefs.get('age'),
+                            "userName": user_profile.get('name'),
+                            "userId": user_id
+                        })
+                        print(f"✅ Enhanced context with user preferences for: {user_profile.get('name')}")
+                    else:
+                        print("⚠️ User profile not found or missing preferences")
+                else:
+                    print("⚠️ Invalid auth token - user ID not found")
+            except Exception as e:
+                print(f"⚠️ Error retrieving user profile: {str(e)} - continuing with form parameters")
+                # Continue with form parameters if auth fails
 
         print("🧠 Step 2: Gemini analysis and work order generation...")
         analysis = gemini_agent.transcribe_and_analyze(audio_path, user_context)
