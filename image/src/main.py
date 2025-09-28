@@ -67,7 +67,7 @@ except ValueError as e:
 # Initialize Content Orchestrator
 try:
     content_orchestrator = ContentOrchestrator()
-    print("🎯 Content Orchestrator initialized with 8 specialized agents!")
+    print("🎯 Content Orchestrator initialized with 6 specialized agents!")
 except Exception as e:
     print(f"⚠️ Content Orchestrator initialization failed: {e}")
     content_orchestrator = None
@@ -600,7 +600,7 @@ async def process_video_complete_pipeline(
     1. Concept Explanation, 2. Code/Equations, 3. Visual Diagrams, 
     4. Practice Problems, 5. Real-world Applications, 6. Summary Cards
     
-    Note: Hook Video and Static Animation agents disabled for performance optimization.
+    Note: Video Generation and Animation Config agents completely disabled for performance optimization.
     
     🔑 Authentication Enhancement:
     - If auth_token (JWT) is provided, user preferences will be automatically retrieved

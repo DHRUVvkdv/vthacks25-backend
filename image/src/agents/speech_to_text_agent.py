@@ -371,7 +371,7 @@ Return ONLY JSON with this shape:
   "quiz_generation": { "blueprint": { "num_questions": number, "focus": [string] } }
 }
 Output pure JSON, no code fences.
-Note: video_generation and animation_config agents are disabled for performance optimization.
+CRITICAL: DO NOT include video_generation or animation_config agents - they are completely disabled for performance optimization.
 """
                     work_orders_resp = self.client.models.generate_content(
                         model=chosen_model,
