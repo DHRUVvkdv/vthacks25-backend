@@ -31,7 +31,11 @@ class ApplicationAgent(BaseContentAgent):
                     "connection_to_concept": "how it relates to the topic"
                 }}
             ],
-            "career_connections": "how this applies to user's career path",
+            "career_connections": [
+                "specific career path connection 1",
+                "specific career path connection 2",
+                "specific career path connection 3"
+            ],
             "everyday_examples": ["example1", "example2"],
             "case_studies": [
                 {{
@@ -56,7 +60,7 @@ class ApplicationAgent(BaseContentAgent):
             return {
                 "agent": "application",
                 "real_world_applications": [{"application": "Practical use in industry", "description": "How this concept applies in professional settings", "industry": user_context.get("major", "Various fields"), "example_scenario": "Real-world scenario", "connection_to_concept": "Direct application of learned concepts"}],
-                "career_connections": f"This directly applies to careers in {user_context.get('major', 'your field')}",
+                "career_connections": [f"This directly applies to careers in {user_context.get('major', 'your field')}", "Builds foundational skills for professional growth", "Enhances problem-solving abilities in the workplace"],
                 "everyday_examples": ["Daily life example 1", "Daily life example 2"],
                 "case_studies": [{"title": "Real Application", "description": "How this was used successfully", "outcome": "Positive results", "lesson": "Key takeaway"}],
                 "future_implications": "This field continues to evolve and create new opportunities",
